@@ -221,20 +221,23 @@ test(all, all(Z = [cw123, cw126, ap723, cw127, ap273, fd825])) :-
 % invalid plus expression and special-case that initial accumulator
 % in the base cases.
 %left_plus(_UnrestrictedPlusExpr, _LeftPlusExpr) :- 'TODO'.
-:- style_check(-singleton).
-
 left_plus(A, A) :- atomic(A), A \= +(,).
 left_plus(A + B, Left) :-
     left_plus(A, LeftA),
     left_plus(B, LeftB),
     append_atoms(LeftA, LeftB, Left).
-
+    
+% Special case for the initial accumulator: 0 is not a valid
+% left plus expression.
 left_plus(_UnrestrictedPlusExpr, _LeftPlusExpr) :-
-    \+ (_UnrestrictedPlusExpr = []).
-
+    dif(_, 0).
+    
+% Helper predicate to append two atoms, handling the case when
+% one of the operands is the empty list.
 append_atoms(A, B, A+B) :- A \= [], B \= [].
 append_atoms([], B, B).
 append_atoms(A, [], A).
+
 
 :- begin_tests(left_plus).
 test(int, nondet) :-
