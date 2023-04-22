@@ -308,25 +308,28 @@ testNormalizeBindings =
 
 
 unify :: Term -> Term -> Maybe [Binding]
-unify term1 term2 = unify' term1 term2 []
+unify term1 term2 = fmap normalizeBindings (unifyAux term1 term2 [])
 
--- auxiliary function with an additional argument for bindings seen so far
-unify' :: Term -> Term -> [Binding] -> Maybe [Binding]
-unify' (Var x) term bindings = Just $ normalizeBindings ((x, term) : bindings)
-unify' term (Var y) bindings = Just $ normalizeBindings ((y, term) : bindings)
-unify' (Struct name1 args1) (Struct name2 args2) bindings
-  | name1 /= name2 = Nothing
-  | length args1 /= length args2 = Nothing
-  | otherwise = unifyList args1 args2 bindings
-  where
-    unifyList [] [] bindings = Just $ normalizeBindings bindings
-    unifyList (t1:ts1) (t2:ts2) bindings =
-      case unify' (substTerm t1 bindings) (substTerm t2 bindings) bindings of
-        Nothing -> Nothing
-        Just newBindings -> unifyList ts1 ts2 newBindings
+unifyAux :: Term -> Term -> [Binding] -> Maybe [Binding]
+unifyAux term1 term2 bindings = case (applyBindings term1 bindings, applyBindings term2 bindings) of
+    (Var x, Var y) | x == y -> Just bindings
+    (Var x, _)              -> Just ((x, term2) : bindings)
+    (_, Var y)              -> Just ((y, term1) : bindings)
+    (Struct f1 terms1, Struct f2 terms2) | f1 == f2 -> unifyTerms terms1 terms2 bindings
+    _ -> Nothing
 
+applyBindings :: Term -> [Binding] -> Term
+applyBindings term@(Var x) bindings = case lookup x bindings of
+    Just t  -> applyBindings t bindings
+    Nothing -> term
+applyBindings (Struct f terms) bindings = Struct f (map (`applyBindings` bindings) terms)
 
-
+unifyTerms :: [Term] -> [Term] -> [Binding] -> Maybe [Binding]
+unifyTerms [] [] bindings = Just bindings
+unifyTerms (t1:ts1) (t2:ts2) bindings = case unifyAux t1 t2 bindings of
+    Just newBindings -> unifyTerms ts1 ts2 newBindings
+    Nothing          -> Nothing
+unifyTerms _ _ _ = Nothing
 
 
 testUnify = do
